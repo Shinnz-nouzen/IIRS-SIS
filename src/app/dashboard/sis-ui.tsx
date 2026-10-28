@@ -104,15 +104,6 @@ export function Icon({
   );
 }
 
-export function DemoMark() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded border border-violet-300/70 bg-violet-50 px-2 py-1 text-[10px] font-semibold tracking-[0.1em] text-violet-800 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-200">
-      <span className="size-1.5 rounded-full bg-violet-600 dark:bg-violet-400" />
-      DEMO DATA
-    </span>
-  );
-}
-
 export function Panel({
   children,
   className = "",

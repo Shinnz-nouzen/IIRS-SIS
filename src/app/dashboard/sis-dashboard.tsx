@@ -1,146 +1,66 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { demoDataSource } from "@/lib/sis/demo-data";
-import type {
-  AttendanceRecord,
-  GradeRecord,
-  SchoolClass,
-  Student,
-} from "@/lib/sis/types";
+import { useState } from "react";
+import type { StudentCounts } from "@/lib/sis/student-records";
 import { SignOutButton } from "./sign-out-button";
 import {
-  AttendanceSection,
-  classLabel,
-  ClassesSection,
-  GradesSection,
-  OverviewSection,
-  ReportsSection,
-  SettingsSection,
-  StaffSection,
-} from "./sis-sections";
-import {
   buttonClass,
-  DemoMark,
-  fieldClass,
+  EmptyState,
   Icon,
   navigation,
+  Panel,
   primaryButtonClass,
+  SectionTitle,
   type Section,
 } from "./sis-ui";
 
 const descriptions: Record<Section, string> = {
-  Overview: "A practical view of school-office workflows in the local preview.",
+  Overview: "Live student totals from the school database.",
   Students: "Manage persistent, staff-only student records.",
-  Classes: "Explore illustrative class details and demo rosters.",
-  Attendance: "Review and update a temporary attendance register.",
-  Grades: "Explore sample assessments without official calculations.",
-  Reports: "Preview and export fictional records as CSV.",
-  "Staff & Access": "Review staff roles and non-operative control previews.",
-  Settings: "Review display, security, and proposed integration settings.",
+  Classes: "Not implemented yet.",
+  Attendance: "Not implemented yet.",
+  Grades: "Not implemented yet.",
+  Reports: "Not implemented yet.",
+  "Staff & Access": "Your current access level.",
+  Settings: "Display preferences.",
 };
 
-export function SisDashboard() {
+const notImplemented: Partial<Record<Section, string>> = {
+  Classes:
+    "Class records are not stored anywhere yet. Class structure, grade levels and sections must be confirmed by the school before a table is designed.",
+  Attendance:
+    "Attendance recording is not connected to any data source yet. Nothing shown here would be saved.",
+  Grades:
+    "Grade entry is not implemented. Grading scales and report-card rules need school approval first.",
+  Reports:
+    "Reports and exports are not implemented. Exports will be added only together with server-side authorization and audit logging.",
+};
+
+export function SisDashboard({
+  role,
+  counts,
+}: {
+  role: "administrator" | "office_staff";
+  counts: StudentCounts | null;
+}) {
   const router = useRouter();
   const [section, setSection] = useState<Section>("Overview");
   const [darkMode, setDarkMode] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const students: Student[] = [];
-  const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [grades, setGrades] = useState<GradeRecord[]>([]);
-  const [dataReady, setDataReady] = useState(false);
-  const [dataError, setDataError] = useState("");
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [classEditorOpen, setClassEditorOpen] = useState(false);
-  const [editingClassId, setEditingClassId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    void Promise.all([
-      demoDataSource.listClasses(),
-      demoDataSource.listAttendance(),
-      demoDataSource.listGrades(),
-    ])
-      .then(([classRows, attendanceRows, gradeRows]) => {
-        if (!active) return;
-        setClasses(classRows.map((schoolClass) => ({ ...schoolClass })));
-        setAttendance(attendanceRows.map((record) => ({ ...record })));
-        setGrades(gradeRows.map((grade) => ({ ...grade })));
-        setDataReady(true);
-      })
-      .catch((error: unknown) => {
-        console.error("Unable to load local SIS demo records.", error);
-        if (active) setDataError("Local demo records could not be loaded. Refresh to try again.");
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const heading = useMemo(() => {
-    if (section === "Classes" && selectedClassId) {
-      return classLabel(classes.find((item) => item.id === selectedClassId));
-    }
-    return section === "Overview" ? "School operations" : section;
-  }, [classes, section, selectedClassId]);
 
   function navigate(next: Section) {
     if (next === "Students") {
       router.push("/dashboard/students");
       return;
     }
-
     setSection(next);
     setMobileMenuOpen(false);
-    setFeedback("");
-    if (next !== "Classes") setSelectedClassId(null);
   }
 
-  function openStudent(student: Student) {
-    router.push(
-      `/dashboard/students/${encodeURIComponent(student.id)}`,
-    );
-  }
-
-  function saveClass(draft: Omit<SchoolClass, "id">) {
-    if (editingClassId) {
-      setClasses((current) =>
-        current.map((schoolClass) =>
-          schoolClass.id === editingClassId
-            ? { ...schoolClass, ...draft }
-            : schoolClass,
-        ),
-      );
-      setFeedback("Class preview updated in temporary local state.");
-    } else {
-      const created: SchoolClass = {
-        ...draft,
-        id: `demo-class-${Date.now()}`,
-      };
-      setClasses((current) => [...current, created]);
-      setSelectedClassId(created.id);
-      setFeedback("Fictional class added to temporary local state.");
-    }
-    setClassEditorOpen(false);
-  }
-
-  function updateAttendance(record: AttendanceRecord) {
-    setAttendance((current) => {
-      const existing = current.findIndex(
-        (item) => item.date === record.date && item.studentId === record.studentId,
-      );
-      if (existing < 0) return [...current, record];
-      return current.map((item, index) => (index === existing ? record : item));
-    });
-  }
-
-  const editingClass =
-    classes.find((schoolClass) => schoolClass.id === editingClassId) ?? null;
+  const roleLabel = role === "administrator" ? "Administrator" : "Office staff";
 
   return (
     <div className={darkMode ? "dark" : ""} style={{ colorScheme: darkMode ? "dark" : "light" }}>
@@ -149,13 +69,9 @@ export function SisDashboard() {
           <Brand />
           <SidebarNavigation section={section} onSelect={navigate} />
           <div className="mt-auto border-t border-slate-100 p-4 dark:border-white/10">
-            <div className="rounded-md border border-violet-400/15 bg-violet-500/[0.06] p-3">
-              <p className="text-xs font-semibold text-violet-950 dark:text-violet-100">Local preview</p>
-              <p className="mt-1 text-[11px] leading-4 text-violet-900/75 dark:text-violet-100/70">Temporary synthetic data only. Changes may reset after refresh.</p>
-            </div>
-            <div className="mt-4 flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-violet-500/10 text-xs font-semibold text-violet-800 dark:text-violet-200">I</div>
-              <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">Staff workspace</p><p className="text-[10px] text-slate-500 dark:text-slate-400">Authenticated area</p></div>
+              <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">Staff workspace</p><p className="text-[10px] text-slate-500 dark:text-slate-400">{roleLabel}</p></div>
               <SignOutButton />
             </div>
           </div>
@@ -171,18 +87,7 @@ export function SisDashboard() {
                   <span>Workspace</span><Icon name="chevron" className="size-3 -rotate-90" /><span className="font-medium text-slate-800 dark:text-slate-100">{section}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline-flex"><DemoMark /></span>
-                <button type="button" onClick={() => setDarkMode((dark) => !dark)} aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"} className={`${buttonClass} size-9 px-0`}><Icon name={darkMode ? "sun" : "moon"} className="size-[17px]" /></button>
-                <details className="relative">
-                  <summary className="flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-slate-200 bg-white text-xs font-semibold text-violet-800 hover:bg-slate-50 dark:border-white/15 dark:bg-[#19191f] dark:text-violet-200 dark:hover:bg-white/[0.07]" aria-label="Open account menu">I</summary>
-                  <div className="absolute right-0 top-11 z-40 w-56 rounded-md border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-[#19191f]">
-                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">Authenticated staff</p>
-                    <p className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">Role and account actions remain server-authorized.</p>
-                    <div className="mt-3 border-t border-slate-100 pt-3 dark:border-white/10"><SignOutButton /></div>
-                  </div>
-                </details>
-              </div>
+              <button type="button" onClick={() => setDarkMode((dark) => !dark)} aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"} className={`${buttonClass} size-9 px-0`}><Icon name={darkMode ? "sun" : "moon"} className="size-[17px]" /></button>
             </div>
             {mobileMenuOpen && (
               <div className="border-t border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#15151b] lg:hidden">
@@ -195,35 +100,60 @@ export function SisDashboard() {
           <main className="mx-auto max-w-[1480px] px-4 py-6 sm:px-7 sm:py-7 xl:px-10">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">International Intellectual Resource School · IIRS</p>
-                <h1 className="text-[23px] font-semibold tracking-tight text-slate-950 dark:text-white">{heading}</h1>
+                <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">International Intellectual Resource School</p>
+                <h1 className="text-[23px] font-semibold tracking-tight text-slate-950 dark:text-white">{section === "Overview" ? "School operations" : section}</h1>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{descriptions[section]}</p>
               </div>
-              {section === "Overview" && <button type="button" onClick={() => navigate("Students")} className={primaryButtonClass}><Icon name="users" className="size-4" /> Open students</button>}
-              {section === "Classes" && !selectedClassId && <button type="button" onClick={() => { setEditingClassId(null); setClassEditorOpen(true); }} className={`${primaryButtonClass} sm:hidden`}><Icon name="plus" className="size-4" /> Add class</button>}
+              {section === "Overview" && <Link href="/dashboard/students" className={primaryButtonClass}><Icon name="users" className="size-4" /> Open students</Link>}
             </div>
 
-            {dataError && <p role="alert" className="mb-4 rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-4 py-3 text-xs text-rose-800 dark:text-rose-200">{dataError}</p>}
-            {!dataReady && !dataError && <p role="status" className="mb-4 text-xs text-slate-500 dark:text-slate-400">Loading local preview records…</p>}
-            {feedback && <div role="status" className="mb-4 flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 text-xs text-emerald-800 dark:text-emerald-200"><span>{feedback}</span><button type="button" onClick={() => setFeedback("")} aria-label="Dismiss message" className="rounded p-1 hover:bg-emerald-500/10"><Icon name="close" className="size-4" /></button></div>}
+            {section === "Overview" && (
+              counts ? (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Metric label="Students" value={counts.total} />
+                  <Metric label="Active" value={counts.active} />
+                  <Metric label="Inactive" value={counts.inactive} />
+                </div>
+              ) : (
+                <p role="alert" className="rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-4 py-3 text-xs text-rose-800 dark:text-rose-200">
+                  Student totals could not be loaded. Open the Students page for details.
+                </p>
+              )
+            )}
 
-            {section === "Overview" && <OverviewSection classes={classes} attendance={attendance} onNavigate={navigate} />}
-            {section === "Classes" && <ClassesSection classes={classes} students={students} selectedClassId={selectedClassId} onSelectClass={setSelectedClassId} onAdd={() => { setEditingClassId(null); setClassEditorOpen(true); }} onEdit={(schoolClass) => { setEditingClassId(schoolClass.id); setClassEditorOpen(true); }} onOpenStudent={openStudent} />}
-            {section === "Attendance" && <AttendanceSection students={students} classes={classes} records={attendance} onChange={updateAttendance} />}
-            {section === "Grades" && <GradesSection students={students} classes={classes} grades={grades} onAddGrade={(grade) => setGrades((current) => [grade, ...current])} />}
-            {section === "Reports" && <ReportsSection students={students} classes={classes} attendance={attendance} grades={grades} />}
-            {section === "Staff & Access" && <StaffSection />}
-            {section === "Settings" && <SettingsSection darkMode={darkMode} onDarkMode={setDarkMode} />}
+            {notImplemented[section] && (
+              <Panel>
+                <EmptyState title="Not implemented" detail={notImplemented[section]!} />
+              </Panel>
+            )}
 
-            <footer className="mt-8 border-t border-slate-200 py-4 text-[11px] text-slate-500 dark:border-white/10 dark:text-slate-500">
-              Overview and non-student sections remain local previews. The Students module uses Supabase records.
-            </footer>
+            {section === "Staff & Access" && (
+              <Panel className="p-5">
+                <SectionTitle title="Your access" detail="Verified against your active staff profile on the server" />
+                <p className="mt-4 text-sm text-slate-700 dark:text-slate-200">Role: <span className="font-medium">{roleLabel}</span></p>
+                <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">Staff invitations, deactivation and role management are not implemented. Staff accounts are provisioned by an administrator directly in the database.</p>
+              </Panel>
+            )}
+
+            {section === "Settings" && (
+              <Panel className="p-5">
+                <SectionTitle title="Display" detail="Applies to this page only and is not saved" />
+                <button type="button" onClick={() => setDarkMode((dark) => !dark)} className={`${buttonClass} mt-4`}>{darkMode ? "Switch to light mode" : "Switch to dark mode"}</button>
+              </Panel>
+            )}
           </main>
         </div>
       </div>
-
-      {classEditorOpen && <ClassEditor key={editingClass?.id ?? "new-class"} schoolClass={editingClass} onClose={() => setClassEditorOpen(false)} onSave={saveClass} />}
     </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <Panel className="p-5">
+      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{value}</p>
+    </Panel>
   );
 }
 
@@ -260,72 +190,5 @@ function SidebarNavigation({
         );
       })}
     </nav>
-  );
-}
-
-function ClassEditor({
-  schoolClass,
-  onClose,
-  onSave,
-}: {
-  schoolClass: SchoolClass | null;
-  onClose: () => void;
-  onSave: (draft: Omit<SchoolClass, "id">) => void;
-}) {
-  const [grade, setGrade] = useState(schoolClass?.grade ?? "");
-  const [section, setSection] = useState(schoolClass?.section ?? "");
-  const [room, setRoom] = useState(schoolClass?.room ?? "");
-  const [teacher, setTeacher] = useState(schoolClass?.teacher ?? "");
-  const [shift, setShift] = useState(schoolClass?.shift ?? "");
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSave({ grade: grade.trim(), section: section.trim(), room: room.trim(), teacher: teacher.trim(), shift: shift.trim() });
-  }
-
-  return (
-    <Modal title={schoolClass ? "Edit class · demo" : "Add class · demo"} onClose={onClose}>
-      <form onSubmit={submit} className="space-y-4">
-        <p className="rounded-md border border-violet-400/20 bg-violet-500/[0.06] p-3 text-xs leading-5 text-violet-900 dark:text-violet-100">This class is only a local preview. Grade levels, sections, academic years, and school schedules must be confirmed before production use.</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="Illustrative grade"><input required maxLength={60} value={grade} onChange={(event) => setGrade(event.target.value)} className={fieldClass} placeholder="e.g. Grade 8" autoFocus /></FormField>
-          <FormField label="Section"><input required maxLength={20} value={section} onChange={(event) => setSection(event.target.value)} className={fieldClass} placeholder="e.g. A" /></FormField>
-          <FormField label="Room label"><input maxLength={60} value={room} onChange={(event) => setRoom(event.target.value)} className={fieldClass} placeholder="Optional" /></FormField>
-          <FormField label="Teacher example"><input maxLength={100} value={teacher} onChange={(event) => setTeacher(event.target.value)} className={fieldClass} placeholder="Optional" /></FormField>
-          <FormField label="Shift example"><select value={shift} onChange={(event) => setShift(event.target.value)} className={fieldClass}><option value="">Not specified</option><option>Morning</option><option>Afternoon</option></select></FormField>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-white/10"><button type="button" onClick={onClose} className={buttonClass}>Cancel</button><button type="submit" className={primaryButtonClass}>{schoolClass ? "Save preview changes" : "Add demo class"}</button></div>
-      </form>
-    </Modal>
-  );
-}
-
-function FormField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return <label className="block space-y-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">{label}{children}</label>;
-}
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-6">
-      <button type="button" aria-label="Close dialog" onClick={onClose} className="absolute inset-0 cursor-default bg-black/60" />
-      <section role="dialog" aria-modal="true" aria-labelledby="modal-heading" className="relative z-10 my-auto max-h-[calc(100vh-24px)] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-[#17171d] sm:p-6">
-        <div className="mb-4 flex items-start justify-between gap-3"><h2 id="modal-heading" className="text-lg font-semibold text-slate-950 dark:text-white">{title}</h2><button type="button" onClick={onClose} aria-label="Close dialog" className="rounded p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"><Icon name="close" className="size-4" /></button></div>
-        {children}
-      </section>
-    </div>
   );
 }

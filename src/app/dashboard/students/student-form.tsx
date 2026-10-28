@@ -2,11 +2,11 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { saveStudent } from "./actions";
 import {
   initialStudentFormState,
-  saveStudent,
   type StudentFormState,
-} from "./actions";
+} from "@/lib/sis/student-form-state";
 
 type StudentFormValues = {
   studentId: string;
@@ -121,6 +121,11 @@ export function StudentForm({
           className="rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-4 py-3 text-sm text-rose-800 dark:text-rose-200"
         >
           {state.error}
+          {state.errorReference && (
+            <span className="mt-1 block font-mono text-xs opacity-80">
+              Reference: {state.errorReference}
+            </span>
+          )}
         </p>
       )}
       <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10">

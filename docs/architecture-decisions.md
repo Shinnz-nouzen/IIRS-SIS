@@ -1,6 +1,6 @@
 # SIS prototype: decisions to confirm
 
-The current interface is a local preview using fictional records. It does not read or write Google Sheets, Supabase data, or Supabase Storage. Staff authentication and server-side authorization remain separate from this demo data.
+The Students module reads and writes the Supabase `public.students` table under RLS. Classes, Attendance, Grades and Reports are not implemented and show an explicit not-implemented state. There is no Google Sheets or Storage integration. Staff authentication and server-side authorization remain separate from this demo data.
 
 Before connecting real records, confirm:
 
@@ -13,4 +13,4 @@ Before connecting real records, confirm:
 - Private file bucket policies, upload limits, file metadata, retention, and authorized access to photos/documents.
 - Google Sheets synchronization direction, frequency, checkpoints, retry behavior, audit events, and operational ownership.
 
-The `DEMO-` IDs, grade/section examples, schedules, attendance entries, assessments, and staff names in the prototype are illustrative only. They are not IIRS records or policies. No migration or external integration is included.
+All demo data has been removed from the application.

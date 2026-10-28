@@ -3,6 +3,7 @@ import {
   type ActiveStaff,
   getActiveStaff,
 } from "@/lib/auth/staff";
+import { getStudentCounts, type StudentCounts } from "@/lib/sis/student-records";
 import { SisDashboard } from "./sis-dashboard";
 
 export const instant = false;
@@ -22,5 +23,13 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  return <SisDashboard />;
+  let counts: StudentCounts | null = null;
+  try {
+    counts = await getStudentCounts();
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("Dashboard student counts failed.", error);
+  }
+
+  return <SisDashboard role={staff.role} counts={counts} />;
 }

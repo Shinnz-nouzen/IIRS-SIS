@@ -10,7 +10,14 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!supabaseUrl || !supabasePublishableKey) {
-    throw new Error("Missing Supabase environment variables.");
+    throw new Error(
+      `Missing Supabase environment variable(s): ${[
+        !supabaseUrl && "NEXT_PUBLIC_SUPABASE_URL",
+        !supabasePublishableKey && "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+      ]
+        .filter(Boolean)
+        .join(", ")}`,
+    );
   }
 
   return createServerClient(supabaseUrl, supabasePublishableKey, {
