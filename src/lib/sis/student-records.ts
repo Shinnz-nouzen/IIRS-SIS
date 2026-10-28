@@ -2,6 +2,7 @@ import "server-only";
 
 import { requireActiveStaff } from "@/lib/auth/staff";
 import { createClient } from "@/lib/supabase/server";
+import { escapeLikePattern } from "./search-escape";
 import type { StudentInput } from "./student-validation";
 
 export type StudentRecord = StudentInput & {
@@ -125,7 +126,7 @@ export async function listStudents({
     .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (search) {
-    const filter = `"%${escapePostgrestValue(search)}%"`;
+    const filter = `"%${escapePostgrestValue(escapeLikePattern(search))}%"`;
     query = query.or(
       `student_id.ilike.${filter},full_name.ilike.${filter}`,
     );

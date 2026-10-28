@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:validation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/lib/sis/student-validation.test.mjs src/lib/auth/staff-policy.test.mjs"
+    "test:validation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/lib/sis/student-validation.test.mjs src/lib/auth/staff-policy.test.mjs src/lib/sis/search-escape.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
