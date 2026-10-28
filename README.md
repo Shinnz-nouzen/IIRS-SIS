@@ -1,60 +1,30 @@
-# IIRS-SIS
+# School SIS
 
-IIRS-SIS is a repository for the Intelligent Information Retrieval System / Student Information System project.
+School information system built with Next.js, TypeScript, Tailwind CSS, and
+Supabase.
 
-## Overview
+## GitHub checks
 
-This project is currently in its initial setup stage. The repository provides a clean starting point for implementing and organizing the system, with a focus on maintainable structure and clear documentation.
+The GitHub Actions workflow runs on every push and pull request. It installs
+the locked npm dependencies and runs TypeScript, lint, validation/authorization
+tests, and a production build. CI uses placeholder Supabase public settings
+only; it does not connect to a Supabase project or apply database migrations.
 
-## Repository Status
+## Local development
 
-- Initial project scaffold
-- README added for project orientation
-- Ready for implementation, modules, and documentation updates
-
-## Getting Started
-
-Clone the repository:
+Create a local `.env.local` with the Supabase project URL and publishable key
+provided by the project owner. Never put service-role keys or other secrets in
+client-side configuration or commit environment files. Then start the app:
 
 ```bash
-git clone https://github.com/Shinnz-nouzen/IIRS-SIS.git
-cd IIRS-SIS
+npm run dev
 ```
 
-Install dependencies as needed for the project stack once development begins.
+Open [http://localhost:3000](http://localhost:3000) in a browser.
 
-## Suggested Project Structure
+## Deployment
 
-```text
-IIRS-SIS/
-├── README.md
-├── docs/
-├── src/
-├── tests/
-├── .gitignore
-└── package.json or requirements.txt (if applicable)
-```
-
-## Development Notes
-
-- Keep documentation up to date as features are added.
-- Organize code into clear modules or services.
-- Use version control and pull requests for changes.
-- Add setup and usage instructions as the project grows.
-
-## Contributing
-
-Contributions are welcome. If you plan to improve the project, please:
-
-1. Create a feature branch.
-2. Make focused changes.
-3. Document the behavior and setup needed.
-4. Open a pull request with a summary of the update.
-
-## License
-
-This project does not currently specify a license. If you intend to publish or distribute the project publicly, add an appropriate open-source license before release.
-
-## Contact
-
-For questions or collaboration inquiries, use the repository's GitHub discussion or issue tracker.
+The CI workflow verifies code; it does not deploy the site. Choose and connect
+a Next.js hosting provider before enabling deployment. The live Supabase
+project must have its schema, staff authorization, and migration history
+reviewed before any database migration is applied.
