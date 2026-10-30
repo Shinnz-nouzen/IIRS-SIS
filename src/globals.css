@@ -18,7 +18,12 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), var(--font-khmer), Arial, Helvetica, sans-serif;
+}
+
+/* Khmer script needs more vertical room than Latin. */
+:lang(km) {
+  line-height: 1.7;
 }
 
 button,

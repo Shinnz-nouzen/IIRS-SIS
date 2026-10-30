@@ -29,7 +29,11 @@ select tablename, policyname, cmd, roles, qual, with_check
 from pg_policies where schemaname = 'public' order by tablename, policyname;
 
 select tgrelid::regclass as table_name, tgname, pg_get_triggerdef(oid) as definition
-from pg_trigger where not tgisinternal and tgrelid::regclass::text like 'public.%'
+from pg_trigger
+where not tgisinternal
+  and (select relnamespace from pg_class where oid = tgrelid) = 'public'::regnamespace
+-- (A text filter such as regclass::text LIKE 'public.%' silently matches nothing:
+-- regclass omits the schema prefix for schemas on the search_path.)
 order by 1, 2;
 
 -- E. Table AND column privileges for anon / authenticated / PUBLIC.

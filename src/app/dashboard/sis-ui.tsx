@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 
-export type Section =
-  | "Overview"
-  | "Students"
-  | "Classes"
-  | "Attendance"
-  | "Grades"
-  | "Reports"
-  | "Staff & Access"
-  | "Settings";
+export type NavKey =
+  | "overview"
+  | "students"
+  | "classes"
+  | "attendance"
+  | "grades"
+  | "reports"
+  | "staff"
+  | "settings";
 
 export type IconName =
   | "grid"
@@ -35,15 +35,15 @@ export type IconName =
   | "edit"
   | "external";
 
-export const navigation: { name: Section; icon: IconName }[] = [
-  { name: "Overview", icon: "grid" },
-  { name: "Students", icon: "users" },
-  { name: "Classes", icon: "book" },
-  { name: "Attendance", icon: "calendar" },
-  { name: "Grades", icon: "chart" },
-  { name: "Reports", icon: "file" },
-  { name: "Staff & Access", icon: "shield" },
-  { name: "Settings", icon: "settings" },
+export const navigation: { key: NavKey; href: string; icon: IconName }[] = [
+  { key: "overview", href: "/dashboard", icon: "grid" },
+  { key: "students", href: "/dashboard/students", icon: "users" },
+  { key: "classes", href: "/dashboard/classes", icon: "book" },
+  { key: "attendance", href: "/dashboard/attendance", icon: "calendar" },
+  { key: "grades", href: "/dashboard/grades", icon: "chart" },
+  { key: "reports", href: "/dashboard/reports", icon: "file" },
+  { key: "staff", href: "/dashboard/staff", icon: "shield" },
+  { key: "settings", href: "/dashboard/settings", icon: "settings" },
 ];
 
 export const fieldClass =
@@ -146,18 +146,20 @@ export function SectionTitle({
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, label }: { status: string; label: string }) {
   const tone =
-    status === "Active" || status === "Present"
+    status === "active"
       ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-      : status === "Pending" || status === "Late" || status === "Unverified"
+      : status === "pending" || status === "on_leave"
         ? "bg-amber-500/10 text-amber-800 dark:text-amber-300"
-        : status === "Missing"
-          ? "bg-rose-500/10 text-rose-700 dark:text-rose-300"
-          : "bg-slate-500/10 text-slate-600 dark:text-slate-300";
+        : status === "graduated"
+          ? "bg-sky-500/10 text-sky-800 dark:text-sky-300"
+          : status === "withdrawn"
+            ? "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+            : "bg-slate-500/10 text-slate-600 dark:text-slate-300";
   return (
     <span className={`inline-flex rounded px-2 py-1 text-xs font-medium ${tone}`}>
-      {status}
+      {label}
     </span>
   );
 }

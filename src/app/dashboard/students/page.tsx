@@ -1,230 +1,228 @@
 import Link from "next/link";
-import { listStudents } from "@/lib/sis/student-records";
+import { unstable_rethrow } from "next/navigation";
+import { getI18n } from "@/lib/i18n/server";
+import { format } from "@/lib/i18n/dictionaries";
+import { listClassOptions, type ClassOption } from "@/lib/sis/class-records";
+import { ageInYears, STUDENT_STATUSES, GENDERS, todayInPhnomPenh } from "@/lib/sis/student-validation";
+import { displayName } from "@/lib/sis/format";
+import {
+  getPhotoUrls,
+  listStudents,
+  type DirectoryFilters,
+  type DirectoryPage,
+} from "@/lib/sis/student-records";
+import { PageHeader } from "../page-header";
+import { buttonClass, EmptyState, fieldClass, Icon, Panel, primaryButtonClass, StatusBadge } from "../sis-ui";
+import { StudentAvatar } from "./student-avatar";
 
 export const instant = false;
 
-type SearchParams = Promise<{
-  q?: string | string[];
-  status?: string | string[];
-  page?: string | string[];
-}>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-const pageLinkClass =
-  "inline-flex min-h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 disabled:opacity-50 dark:border-white/15 dark:bg-[#19191f] dark:text-slate-200";
-
-function firstValue(value?: string | string[]) {
-  return Array.isArray(value) ? value[0] : value;
+function first(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value) ?? "";
 }
 
-export default async function StudentsPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default async function StudentsPage({ searchParams }: { searchParams: SearchParams }) {
+  const { lang, t } = await getI18n();
   const params = await searchParams;
-  const search = (firstValue(params.q) ?? "").trim().slice(0, 100);
-  const statusValue = firstValue(params.status);
-  const status =
-    statusValue === "active" || statusValue === "inactive"
-      ? statusValue
-      : "all";
-  const pageValue = Number(firstValue(params.page) ?? "1");
-  const page =
-    Number.isSafeInteger(pageValue) && pageValue > 0
-      ? Math.min(pageValue, 1_000_000)
-      : 1;
-  let result;
-  let loadError: string | null = null;
+  const filters: DirectoryFilters = {
+    search: first(params.q).slice(0, 100),
+    status: (STUDENT_STATUSES as readonly string[]).includes(first(params.status)) ? first(params.status) : "",
+    gender: (GENDERS as readonly string[]).includes(first(params.gender)) ? first(params.gender) : "",
+    classId: first(params.class).slice(0, 36),
+    missing: ["guardian", "emergency", "photo", "location"].includes(first(params.missing)) ? first(params.missing) : "",
+    sort: ["id", "name", "updated"].includes(first(params.sort)) ? first(params.sort) : "id",
+    page: Number.parseInt(first(params.page), 10) || 1,
+  };
 
+  let result: DirectoryPage | null = null;
+  let classes: ClassOption[] = [];
+  let photoUrls: Record<string, string> = {};
   try {
-    result = await listStudents({ search, status, page });
+    [result, classes] = await Promise.all([listStudents(filters), listClassOptions()]);
+    photoUrls = await getPhotoUrls(result.rows.map((row) => row.photoPath));
   } catch (error) {
-    console.error("Student directory page failed to load.", error);
-    loadError =
-      error instanceof Error
-        ? error.message
-        : "Student records could not be loaded.";
+    unstable_rethrow(error);
+    console.error("Student directory page failed.", error);
   }
 
-  const pageCount = result
-    ? Math.max(1, Math.ceil(result.total / result.pageSize))
-    : 1;
+  const filtersActive = Boolean(
+    filters.search || filters.status || filters.gender || filters.classId || filters.missing,
+  );
+  const today = todayInPhnomPenh();
+
+  function pageHref(page: number): string {
+    const query = new URLSearchParams();
+    if (filters.search) query.set("q", filters.search);
+    if (filters.status) query.set("status", filters.status);
+    if (filters.gender) query.set("gender", filters.gender);
+    if (filters.classId) query.set("class", filters.classId);
+    if (filters.missing) query.set("missing", filters.missing);
+    if (filters.sort !== "id") query.set("sort", filters.sort);
+    if (page > 1) query.set("page", String(page));
+    const text = query.toString();
+    return text ? `/dashboard/students?${text}` : "/dashboard/students";
+  }
 
   return (
-    <main className="min-h-screen bg-[#0d0d11] px-4 py-8 text-slate-100 sm:px-7">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <Link
-              href="/dashboard"
-              className="text-xs text-violet-300 hover:text-violet-200"
-            >
-              ← Dashboard
-            </Link>
-            <h1 className="mt-3 text-2xl font-semibold">Students</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Staff-only student directory
-            </p>
-          </div>
-          <Link
-            href="/dashboard/students/new"
-            className="inline-flex min-h-10 items-center rounded-md bg-violet-700 px-4 text-sm font-medium text-white hover:bg-violet-600"
-          >
-            Add student
+    <>
+      <PageHeader
+        eyebrow={t.brand.school}
+        title={t.directory.title}
+        detail={t.directory.detail}
+        action={
+          <Link href="/dashboard/students/new" className={primaryButtonClass}>
+            <Icon name="plus" className="size-4" /> {t.directory.add}
           </Link>
-        </div>
+        }
+      />
 
-        <section className="overflow-hidden rounded-lg border border-white/10 bg-[#15151b]">
-          <form
-            action="/dashboard/students"
-            className="grid gap-3 border-b border-white/10 p-4 sm:grid-cols-[minmax(0,1fr)_180px_auto]"
-          >
-            <label>
-              <span className="sr-only">Search name or student ID</span>
-              <input
-                name="q"
-                defaultValue={search}
-                maxLength={100}
-                placeholder="Search name or student ID"
-                className="h-10 w-full rounded-md border border-white/15 bg-[#111116] px-3 text-sm text-white placeholder:text-slate-500"
-              />
-            </label>
-            <label>
-              <span className="sr-only">Enrollment status</span>
-              <select
-                name="status"
-                defaultValue={status}
-                className="h-10 w-full rounded-md border border-white/15 bg-[#111116] px-3 text-sm text-white"
-              >
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-            <button
-              type="submit"
-              className="h-10 rounded-md border border-white/15 px-4 text-sm hover:bg-white/[0.06]"
-            >
-              Search
-            </button>
-          </form>
+      <Panel className="mb-4 p-4">
+        <form method="get" action="/dashboard/students" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="sm:col-span-2 lg:col-span-2">
+            <label htmlFor="q" className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">{t.directory.searchLabel}</label>
+            <input id="q" name="q" type="search" defaultValue={filters.search} placeholder={t.directory.searchPlaceholder} className={fieldClass} />
+          </div>
+          <FilterSelect id="status" label={t.directory.statusLabel} value={filters.status} all={t.directory.allStatuses}
+            options={STUDENT_STATUSES.map((value) => ({ value, label: t.status[value] }))} />
+          <FilterSelect id="gender" label={t.directory.genderLabel} value={filters.gender} all={t.directory.allGenders}
+            options={GENDERS.map((value) => ({ value, label: t.gender[value] }))} />
+          <FilterSelect id="class" label={t.directory.classLabel} value={filters.classId} all={t.directory.allClasses}
+            options={[
+              { value: "none", label: t.directory.noClass },
+              ...classes.map((option) => ({
+                value: option.id,
+                label: `${lang === "km" ? option.nameKm ?? option.nameEn : option.nameEn} · ${option.schoolYear}`,
+              })),
+            ]} />
+          <FilterSelect id="missing" label={t.directory.missingLabel} value={filters.missing} all={t.directory.missingAny}
+            options={[
+              { value: "guardian", label: t.directory.missingGuardian },
+              { value: "emergency", label: t.directory.missingEmergency },
+              { value: "photo", label: t.directory.missingPhoto },
+              { value: "location", label: t.directory.missingLocation },
+            ]} />
+          <FilterSelect id="sort" label={t.directory.sortLabel} value={filters.sort} all={null}
+            options={[
+              { value: "id", label: t.directory.sortId },
+              { value: "name", label: t.directory.sortName },
+              { value: "updated", label: t.directory.sortUpdated },
+            ]} />
+          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
+            <button type="submit" className={primaryButtonClass}><Icon name="search" className="size-4" /> {t.common.search}</button>
+            {filtersActive && <Link href="/dashboard/students" className={buttonClass}>{t.common.clear}</Link>}
+          </div>
+        </form>
+      </Panel>
 
-          {loadError ? (
-            <div role="alert" className="p-6">
-              <h2 className="text-sm font-semibold text-rose-200">
-                Student records are unavailable
-              </h2>
-              <p className="mt-2 text-sm text-slate-300">{loadError}</p>
-              <p className="mt-2 text-xs leading-5 text-slate-400">
-                No demo data was substituted. Confirm the student migration is
-                installed and that your staff account is active.
-              </p>
-            </div>
-          ) : result?.rows.length ? (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] text-left">
-                  <thead className="bg-white/[0.025] text-[10px] uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th className="px-5 py-3">Student</th>
-                      <th className="px-4 py-3">Student ID</th>
-                      <th className="px-4 py-3">Enrollment status</th>
-                      <th className="px-4 py-3">Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/10">
-                    {result.rows.map((student) => (
-                      <tr key={student.studentId}>
-                        <td className="px-5 py-3">
-                          <Link
-                            href={`/dashboard/students/${encodeURIComponent(student.studentId)}`}
-                            className="text-sm font-medium text-violet-300 hover:underline"
-                          >
-                            {student.fullName}
+      <Panel>
+        {!result ? (
+          <div role="alert" className="px-5 py-10 text-center">
+            <p className="text-sm font-medium text-rose-800 dark:text-rose-200">{t.directory.loadError}</p>
+            <p className="mx-auto mt-1 max-w-xl text-xs text-slate-500 dark:text-slate-400">{t.directory.loadErrorDetail}</p>
+          </div>
+        ) : result.rows.length === 0 ? (
+          filtersActive ? (
+            <EmptyState title={t.directory.emptyFiltered} detail={t.directory.emptyFilteredDetail} />
+          ) : (
+            <EmptyState title={t.directory.emptyAll} detail={t.directory.emptyAllDetail} />
+          )
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[320px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+                    <th scope="col" className="px-4 py-3 font-medium">{t.directory.columns.student}</th>
+                    <th scope="col" className="hidden px-4 py-3 font-medium md:table-cell">{t.directory.columns.id}</th>
+                    <th scope="col" className="hidden px-4 py-3 font-medium md:table-cell">{t.directory.columns.gender} · {t.directory.columns.age}</th>
+                    <th scope="col" className="hidden px-4 py-3 font-medium sm:table-cell">{t.directory.columns.class}</th>
+                    <th scope="col" className="hidden px-4 py-3 font-medium lg:table-cell">{t.directory.columns.guardian}</th>
+                    <th scope="col" className="px-4 py-3 font-medium">{t.directory.columns.status}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.rows.map((row) => {
+                    const name = displayName(row.fullName, row.fullNameKm, lang);
+                    const className = lang === "km" ? row.classNameKm ?? row.classNameEn : row.classNameEn;
+                    const guardian = displayName(row.guardianNameEn, row.guardianNameKm, lang);
+                    const age = row.dateOfBirth ? ageInYears(row.dateOfBirth, today) : null;
+                    const incomplete = row.guardianCount === 0 || row.emergencyContactCount === 0;
+                    return (
+                      <tr key={row.studentId} className="border-b border-slate-100 last:border-0 dark:border-white/5">
+                        <td className="px-4 py-3">
+                          <Link href={`/dashboard/students/${encodeURIComponent(row.studentId)}`} className="flex items-center gap-3">
+                            <StudentAvatar url={row.photoPath ? photoUrls[row.photoPath] : null} name={name.primary} />
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium text-slate-900 hover:text-violet-700 dark:text-slate-100 dark:hover:text-violet-300">{name.primary}</span>
+                              {name.secondary && <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{name.secondary}</span>}
+                              <span className="block text-xs text-slate-500 dark:text-slate-400 md:hidden">{row.studentId}</span>
+                            </span>
                           </Link>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-400">
-                          {student.studentId}
+                        <td className="hidden px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300 md:table-cell">{row.studentId}</td>
+                        <td className="hidden px-4 py-3 text-slate-600 dark:text-slate-300 md:table-cell">
+                          {row.gender ? t.gender[row.gender as "female" | "male"] : "—"}
+                          {age !== null && <span className="text-slate-400"> · {age}</span>}
                         </td>
-                        <td className="px-4 py-3 text-sm capitalize text-slate-300">
-                          {student.enrollmentStatus}
+                        <td className="hidden px-4 py-3 text-slate-600 dark:text-slate-300 sm:table-cell">{className ?? <span className="text-slate-400">{t.directory.noClass}</span>}</td>
+                        <td className="hidden px-4 py-3 text-slate-600 dark:text-slate-300 lg:table-cell">
+                          {row.guardianCount > 0 ? (
+                            <>
+                              <span className="block">{guardian.primary || "—"}</span>
+                              {row.guardianPhone && <span className="block text-xs text-slate-500 dark:text-slate-400">{row.guardianPhone}</span>}
+                            </>
+                          ) : (
+                            <span className="text-xs text-amber-800 dark:text-amber-300">{t.directory.missingGuardian}</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-400">
-                          {new Date(student.updatedAt).toLocaleDateString()}
+                        <td className="px-4 py-3">
+                          <StatusBadge status={row.status} label={t.status[row.status]} />
+                          {incomplete && <span className="mt-1 block text-[11px] text-amber-800 dark:text-amber-300">{t.directory.incomplete}</span>}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-between border-t border-white/10 px-4 py-3">
-                <p className="text-xs text-slate-400">
-                  {result.total} records · page {page} of {pageCount}
-                </p>
-                <div className="flex gap-2">
-                  <PageLink
-                    search={search}
-                    status={status}
-                    page={page - 1}
-                    disabled={page <= 1}
-                  >
-                    Previous
-                  </PageLink>
-                  <PageLink
-                    search={search}
-                    status={status}
-                    page={page + 1}
-                    disabled={page >= pageCount}
-                  >
-                    Next
-                  </PageLink>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="px-5 py-12 text-center">
-              <p className="text-sm font-medium text-slate-200">
-                {search || status !== "all"
-                  ? "No students match this search."
-                  : "No student records yet."}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Add a student using a school-assigned ID, or change the search.
-              </p>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-        </section>
-      </div>
-    </main>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+              <span>{format(t.directory.records, { n: result.total })} · {format(t.directory.pageOf, { page: result.page, pages: result.pages })}</span>
+              <span className="flex gap-2">
+                {result.page > 1 ? <Link href={pageHref(result.page - 1)} className={buttonClass}>{t.common.previous}</Link> : null}
+                {result.page < result.pages ? <Link href={pageHref(result.page + 1)} className={buttonClass}>{t.common.next}</Link> : null}
+              </span>
+            </div>
+          </>
+        )}
+      </Panel>
+    </>
   );
 }
 
-function PageLink({
-  search,
-  status,
-  page,
-  disabled,
-  children,
+function FilterSelect({
+  id,
+  label,
+  value,
+  all,
+  options,
 }: {
-  search: string;
-  status: string;
-  page: number;
-  disabled: boolean;
-  children: React.ReactNode;
+  id: string;
+  label: string;
+  value: string;
+  all: string | null;
+  options: { value: string; label: string }[];
 }) {
-  const params = new URLSearchParams();
-  if (search) params.set("q", search);
-  if (status !== "all") params.set("status", status);
-  params.set("page", String(page));
-
   return (
-    <Link
-      aria-disabled={disabled}
-      tabIndex={disabled ? -1 : undefined}
-      href={`/dashboard/students?${params.toString()}`}
-      className={`${pageLinkClass} ${disabled ? "pointer-events-none" : "hover:bg-white/[0.06]"}`}
-    >
-      {children}
-    </Link>
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">{label}</label>
+      <select id={id} name={id} defaultValue={value} className={fieldClass}>
+        {all !== null && <option value="">{all}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </div>
   );
 }

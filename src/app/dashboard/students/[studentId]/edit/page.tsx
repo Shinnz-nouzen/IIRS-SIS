@@ -1,55 +1,73 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getStudent } from "@/lib/sis/student-records";
+import { notFound, unstable_rethrow } from "next/navigation";
+import { getI18n } from "@/lib/i18n/server";
+import { getPhotoUrls, getStudentProfile } from "@/lib/sis/student-records";
+import { emptyStudentValues, type StudentFormValues } from "@/lib/sis/student-validation";
+import { PageHeader } from "../../../page-header";
+import { Panel } from "../../../sis-ui";
+import { updateStudentAction } from "../../actions";
 import { StudentForm } from "../../student-form";
 
 export const instant = false;
 
-export default async function EditStudentPage({
-  params,
-}: {
-  params: Promise<{ studentId: string }>;
-}) {
-  const { studentId } = await params;
-  let student;
+export default async function EditStudentPage({ params }: { params: Promise<{ studentId: string }> }) {
+  const { studentId: rawId } = await params;
+  const studentId = decodeURIComponent(rawId);
+  const { t } = await getI18n();
 
+  let profile;
   try {
-    student = await getStudent(studentId);
+    profile = await getStudentProfile(studentId);
   } catch (error) {
-    console.error("Student edit page failed to load.", error);
+    unstable_rethrow(error);
+    console.error("Edit student page failed.", error);
     return (
-      <main className="min-h-screen bg-[#0d0d11] px-4 py-8 text-slate-100 sm:px-7">
-        <div role="alert" className="mx-auto max-w-2xl rounded-lg border border-rose-500/20 bg-[#15151b] p-6">
-          <h1 className="font-semibold text-rose-200">Student record is unavailable</h1>
-          <p className="mt-2 text-sm text-slate-300">
-            {error instanceof Error ? error.message : "Student record could not be loaded."}
-          </p>
-        </div>
-      </main>
+      <Panel className="p-6" >
+        <p role="alert" className="text-sm text-rose-800 dark:text-rose-200">{t.profile.unavailable}</p>
+      </Panel>
     );
   }
+  if (!profile) notFound();
 
-  if (!student) notFound();
+  const photoUrls = await getPhotoUrls([profile.photoPath]);
+  const initial: StudentFormValues = {
+    ...emptyStudentValues,
+    studentId: profile.studentId,
+    fullName: profile.fullName,
+    fullNameKm: profile.fullNameKm ?? "",
+    dateOfBirth: profile.dateOfBirth ?? "",
+    gender: profile.gender ?? "",
+    placeOfBirth: profile.placeOfBirth ?? "",
+    nationality: profile.nationality ?? "",
+    admissionDate: profile.admissionDate ?? "",
+    enrollmentStatus: profile.status,
+    addressLine: profile.addressLine ?? "",
+    village: profile.village ?? "",
+    commune: profile.commune ?? "",
+    district: profile.district ?? "",
+    province: profile.province ?? "",
+    addressNotes: profile.addressNotes ?? "",
+    homeLatitude: profile.homeLatitude === null ? "" : String(profile.homeLatitude),
+    homeLongitude: profile.homeLongitude === null ? "" : String(profile.homeLongitude),
+  };
+  const profileHref = `/dashboard/students/${encodeURIComponent(profile.studentId)}`;
 
   return (
-    <main className="min-h-screen bg-[#0d0d11] px-4 py-8 text-slate-100 sm:px-7">
-      <div className="mx-auto max-w-2xl">
-        <Link
-          href={`/dashboard/students/${encodeURIComponent(student.studentId)}`}
-          className="text-xs text-violet-300 hover:text-violet-200"
-        >
-          ← Student profile
-        </Link>
-        <section className="mt-4 rounded-lg border border-white/10 bg-[#15151b] p-5 sm:p-7">
-          <h1 className="text-xl font-semibold">Edit student</h1>
-          <p className="mt-1 font-mono text-xs text-slate-400">
-            {student.studentId}
-          </p>
-          <div className="mt-6">
-            <StudentForm student={student} />
-          </div>
-        </section>
+    <div className="mx-auto max-w-3xl">
+      <Link href={profileHref} className="text-xs text-violet-700 hover:text-violet-600 dark:text-violet-300 dark:hover:text-violet-200">
+        ← {profile.fullName}
+      </Link>
+      <div className="mt-4">
+        <PageHeader title={t.form.editTitle} detail={`${profile.studentId} · ${profile.fullName}`} />
+        <StudentForm
+          mode="update"
+          action={updateStudentAction}
+          initial={initial}
+          originalStudentId={profile.studentId}
+          currentPhotoUrl={profile.photoPath ? photoUrls[profile.photoPath] ?? null : null}
+          cancelHref={profileHref}
+        />
       </div>
-    </main>
+    </div>
   );
 }

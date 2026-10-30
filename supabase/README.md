@@ -237,3 +237,11 @@ fixtures. `npm run test:validation` exercises server-side input validation;
 RLS, staff authorization, persistence, and trigger behavior remain manual
 test-project checks until an authenticated integration environment is
 available.
+
+## Phase 2 (student management)
+
+`migrations/20261029100000_student_management_phase2.sql` extends the existing tables
+(forward-only, additive; it refuses to run on an unexpected base or twice). It has been
+verified on a local replica and by a rolled-back dry run on the live project, but is **not
+applied** until you apply it. See `docs/phase-2-student-management.md` for how to apply and
+`supabase/tests/README.md` for the dry-run tooling.
